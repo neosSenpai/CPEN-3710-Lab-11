@@ -1,0 +1,167 @@
+Microsoft (R) Macro Assembler Version 14.27.29112.0	    11/13/20 11:24:47
+quadratic.asm						     Page 1 - 1
+
+
+				; Quadratic function      (quadratic.asm)
+
+				;
+				.586
+				.model flat,C
+				public Quadratic					; quadratic can be called by external code
+				 
+ 00000000			 .data
+ 00000000 33D6BF95		 epsilon	REAL4	0.0000001		; if input is less than this, assume it is zero
+ 00000004 00000000		 determin	REAL4	?				; real value of discriminant D as a 32-bit (4-byte) IEEE short real
+ 00000008 00000004		 deterInt	DWORD	4				; CONSTANT value used in the calculation of the discriminant
+ 0000000C 00000002		 rootInt	DWORD	2				; CONSTANT value used to calculate roots
+ 00000000			.code
+				;-----------------------------------------------
+ 00000000			Quadratic PROC 
+				;
+				; Finds roots of quadratic equations using
+				; the FPU
+				;
+				; Recieves: A, B, and C pointed to by the EBP register
+				; 
+				; Returns: 0 or -1 in EAX depending on if the
+				; roots are real (0) or complex (-1)
+				;-----------------------------------------------
+ =-00000001				COMPLEX_ROOT = -1				; returns -1 if the roots are complex
+
+ 00000000  55				push	ebp						; save caller's base pointer
+ 00000001  8B EC			mov		ebp, esp				; set up a new base pointer
+ 00000003  E8 0000003B			call	discriminant				; get the value of the discriminant D
+
+					; Check to see if the discriminant is = 0, if so then there is only one real solution
+					; since both roots will be the same value
+ 00000008  9B DB E3			finit
+ 0000000B  D9 05 00000000 R		fld		epsilon					; ST(0) = epsilon	
+ 00000011  D9 05 00000004 R		fld		determin				; ST(0) = discriminant, ST(1) = epsilon
+ 00000017  D8 25 00000000 R		fsub	epsilon					; ST(0) = epsilon, ST(1) = discriminant, ST(2) = epsilon
+ 0000001D  D9 E1			fabs
+ 0000001F  DB F1			fcomi ST(0),ST(1)				; Does D = 0?
+ 00000021  77 02			ja		L1						; if D > 0 go to L1 which  tests  for complex roots
+ 00000023  EB 17			jmp		continue				; if D = 0 then get the root
+ 00000025			L1:
+					; is D < 0
+ 00000025  D9 05 00000000 R		fld		epsilon					; ST(0) = epsilon	
+ 0000002B  D9 05 00000004 R		fld		determin				; ST(0) = determin, ST(1) = epsilon	
+ 00000031  DB F1			fcomi	st(0),st(1)				; is d < 0
+ 00000033  77 07			ja		continue				; if yes we can get roots, if not then the equation is complex
+ 00000035  B8 FFFFFFFF			mov		eax,COMPLEX_ROOT		; returns -1 in eax if the root is complex
+ 0000003A  5D				pop		ebp						; restore previous base pointer
+ 0000003B  C3				ret								; return with eax = -1
+
+ 0000003C			continue:
+ 0000003C  E8 00000024			call	getRoots
+ 00000041  5D				pop		ebp
+ 00000042  C3				ret
+ 00000043			Quadratic ENDP
+
+				;-----------------------------------------------
+ 00000043			discriminant PROC 
+				;
+				; This procdure calculates the value of the
+				; discriminant
+				; 
+				; Recieves: A, B, and C pointed to by the EBP register
+				;
+				; Returns: deterInt (the Discriminant used for root calculations)
+				;-----------------------------------------------
+ 00000043  9B DB E3			finit							; initializes the FPU
+ 00000046  D9 45 0C			fld		real4 ptr[ebp+12]		; ST(0) = b
+ 00000049  D9 45 0C			fld		real4 ptr[ebp+12]		; ST(0) = b, ST(1) = b
+ 0000004C  DE C9			fmul							; ST(0) = b*b
+ 0000004E  D9 45 08			fld		real4 ptr[ebp+8]		; ST(0) = a, ST(1) = b*b
+ 00000051  D9 45 10			fld		real4 ptr[ebp+16]		; ST(0) = c, ST(1) = a, ST(2) = b*b
+ 00000054  DE C9			fmul							; ST(0) = a*c, ST(1) = b*b
+ 00000056  DA 0D 00000008 R		fimul	deterInt				; ST(0) = 4*(a*c), ST(1) = b*b
+ 0000005C  DE E9			fsubp	st(1),st(0)				; ST(0) = b*b - (4*a*c)
+ 0000005E  D9 1D 00000004 R		fstp	determin				; store discriminant in determin
+ 00000064  C3				ret								; exit proc
+ 00000065			discriminant ENDP
+
+				;-----------------------------------------------
+ 00000065			getRoots PROC 
+				;
+				; This procdure calculates the roots of a 
+				; quadratic equation
+				; 
+				; Recieves:A, B, and C pointed to by the EBP register
+				;
+				; Returns: 0 in EAX
+				;-----------------------------------------------
+					; (-b + sqrtD)/2a
+ 00000065  D9 45 0C			fld		real4 ptr[ebp+12]		; ST(0) = b
+ 00000068  D9 E0			fchs							; ST(0) = -b
+ 0000006A  D9 05 00000004 R		fld		determin				; ST(0) = D, ST(1) = -b
+ 00000070  D9 FA			fsqrt							; ST(0) = sqrtD, ST(1) = -b
+ 00000072  DE C1			faddp	st(1),st(0)				; ST(0) = -b + sqrtD
+ 00000074  D9 45 08			fld		real4 ptr[ebp+8]		; ST(0) = a, ST(1) = -b + sqrtD
+ 00000077  DA 0D 0000000C R		fimul	rootInt					; ST(0) = 2a, ST(1) = -b + sqrtD
+ 0000007D  DE F9			fdivp	st(1),st(0)				; ST(0) = (-b + sqrtD)/2a
+ 0000007F  8B 7D 14			mov		edi,[ebp+20]			; get result pointer from stack frame at root1
+ 00000082  D9 1F			fstp	real4 ptr[edi]			; store the result in memory 
+					; (-b - ?D)/2a
+ 00000084  D9 45 0C			fld		real4 ptr[ebp+12]		; ST(0) = b
+ 00000087  D9 E0			fchs							; ST(0) = -b
+ 00000089  D9 05 00000004 R		fld		determin				; ST(0) = D, ST(1) = -b
+ 0000008F  D9 FA			fsqrt							; ST(0) = sqrtD, ST(1) = -b
+ 00000091  DE E9			fsubp	st(1),st(0)				; ST(0) = -b - sqrtD
+ 00000093  D9 45 08			fld		real4 ptr[ebp+8]		; ST(0) = a, ST(1) = -b - sqrtD
+ 00000096  DA 0D 0000000C R		fimul	rootInt					; ST(0) = 2a, ST(1) = -b - sqrtD
+ 0000009C  DE F9			fdivp	st(1),st(0)				; ST(0) = (-b - sqrtD)/2a
+ 0000009E  8B 7D 18			mov		edi,[ebp+24]			; get result pointer from stack frame at root2
+ 000000A1  D9 1F			fstp	real4 ptr[edi]			; store the result in memory 
+ 000000A3  33 C0			xor		eax,eax					; signal success
+ 000000A5  C3				ret								; exit proc
+ 000000A6			getRoots ENDP
+				END
+
+Microsoft (R) Macro Assembler Version 14.27.29112.0	    11/13/20 11:24:47
+quadratic.asm						     Symbols 2 - 1
+
+
+
+
+Segments and Groups:
+
+                N a m e                 Size     Length   Align   Combine Class
+
+FLAT . . . . . . . . . . . . . .	GROUP
+_DATA  . . . . . . . . . . . . .	32 Bit	 00000010 Para	  Public  'DATA'	
+_TEXT  . . . . . . . . . . . . .	32 Bit	 000000A6 Para	  Public  'CODE'	
+
+
+Procedures, parameters, and locals:
+
+                N a m e                 Type     Value    Attr
+
+Quadratic  . . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 00000043 Public C
+  L1 . . . . . . . . . . . . . .	L Near	 00000025 _TEXT	
+  continue . . . . . . . . . . .	L Near	 0000003C _TEXT	
+discriminant . . . . . . . . . .	P Near	 00000043 _TEXT	Length= 00000022 Public C
+getRoots . . . . . . . . . . . .	P Near	 00000065 _TEXT	Length= 00000041 Public C
+
+
+Symbols:
+
+                N a m e                 Type     Value    Attr
+
+@CodeSize  . . . . . . . . . . .	Number	 00000000h   
+@DataSize  . . . . . . . . . . .	Number	 00000000h   
+@Interface . . . . . . . . . . .	Number	 00000001h   
+@Model . . . . . . . . . . . . .	Number	 00000007h   
+@code  . . . . . . . . . . . . .	Text   	 _TEXT
+@data  . . . . . . . . . . . . .	Text   	 FLAT
+@fardata?  . . . . . . . . . . .	Text   	 FLAT
+@fardata . . . . . . . . . . . .	Text   	 FLAT
+@stack . . . . . . . . . . . . .	Text   	 FLAT
+COMPLEX_ROOT . . . . . . . . . .	Number	 -00000001h   
+deterInt . . . . . . . . . . . .	DWord	 00000008 _DATA	
+determin . . . . . . . . . . . .	DWord	 00000004 _DATA	
+epsilon  . . . . . . . . . . . .	DWord	 00000000 _DATA	
+rootInt  . . . . . . . . . . . .	DWord	 0000000C _DATA	
+
+	   0 Warnings
+	   0 Errors

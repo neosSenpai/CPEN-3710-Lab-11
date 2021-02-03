@@ -6,6 +6,7 @@ For this lab, we create a multimodule program that combines the C++ language wit
 
 The files of interest for this project are:
 
+CPEN-3710-Lab-11/Lab 11/Project32_VS2019/main.cpp
+
 CPEN-3710-Lab-11/Lab 11/Project32_VS2019/quadratic.asm 
 
-CPEN-3710-Lab-11/Lab 11/Project32_VS2019/main.cpp

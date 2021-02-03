@@ -10,3 +10,5 @@ CPEN-3710-Lab-11/Lab 11/Project32_VS2019/main.cpp
 
 CPEN-3710-Lab-11/Lab 11/Project32_VS2019/quadratic.asm 
 
+###### Note: This project makes use of the irvine32 library and is required to run this project
+
